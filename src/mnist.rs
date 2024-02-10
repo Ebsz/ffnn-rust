@@ -16,11 +16,14 @@ pub fn load_mnist() -> (Array2<f32>, Vec<u8>) {
     println!("Loading mnist dataset");
 
     let mut training_data: (Vec<u8>, Vec<u8>) = load_training_set();
+    let img: Array2<f32> = normalize_img(data_to_arrays(training_data.0));
 
-    let img_array: Array2<f32> = data_to_arrays(training_data.0);
+    (img, training_data.1)
+}
 
-    (img_array, training_data.1)
-
+fn normalize_img(data: Array2<f32>) -> Array2<f32> {
+    // Normalize each point in the images from [0,255] to (-1,1)
+    data * (2.0/255.0) - 1.0
 }
 
 fn data_to_arrays(data: Vec<u8>) -> Array2<f32> {
