@@ -1,4 +1,4 @@
-use ndarray::{Array, Array2, array, s, ArrayView2};
+use ndarray::{Array, Array2, array, s, ArrayView2, Axis};
 use ndarray_rand::RandomExt;
 use ndarray_rand::rand_distr::Uniform;
 
@@ -14,7 +14,6 @@ impl NeuralNetwork {
         let mut prev: usize = n_inputs;
         for l in layers {
             let shape = (prev, l);
-
             weights.push(Array::random(shape, Uniform::new(-1.,1.))); // TODO: currently initializing uniformly; change to gaussian?
             prev = l;
         }
@@ -26,19 +25,37 @@ impl NeuralNetwork {
 
     pub fn forward(&self, X: ArrayView2<f32>) -> Array2<f32> {
         /*
-         * Forward the input through the network
-         * X: Array2 of size [bs, 784]
+         * Forward input through the network
+         * X: Array2: [bs, 784]
          */         
 
-        let mut out = X.dot(&self.W[0]);
+        let mut l1 = X.dot(&self.W[0]);  // [bs, 64]
+        l1 = l1.mapv(|x| sigmoid(x));
 
-        out.dot(&self.W[1])
+        let mut l2 = l1.dot(&self.W[1]); // [bs, 32]
+        l2 = l2.mapv(|x| sigmoid(x));
 
-        // TODO: assert output is of size [BS, 10]
+        let mut l3 = l2.dot(&self.W[2]); // [bs, 10]
 
+        let out = softmax(&l3);
+
+        out
     }
 }
 
-fn sigmoid(z: f32) -> f32 {
-    1.0/(1.0+(-z).exp())
+fn sigmoid(x: f32) -> f32 {
+    1.0/(1.0+(-x).exp())
+}
+
+
+fn softmax(x: &Array2<f32>) -> Array2<f32> {
+    // TODO: This could very well be very slow
+
+    let mut s = x.mapv(f32::exp);
+
+    for mut row in s.rows_mut() {
+        row /= row.sum();
+    }
+
+    e
 }

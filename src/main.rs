@@ -4,7 +4,7 @@ pub mod mnist;
 use network::NeuralNetwork;
 use mnist::load_mnist;
 
-use ndarray::{Array, Array2, array, s, ArrayView2};
+use ndarray::{Array, Array2, array, s, ArrayView2, Axis};
 
 
 const BATCH_SIZE: usize = 50;
@@ -13,7 +13,7 @@ const N_INPUTS: usize = 784;
 fn create_network() -> NeuralNetwork {
     println!("Initializing network");
 
-    let layers: Vec<usize> = vec!(64, 10);
+    let layers: Vec<usize> = vec!(64, 32, 10);
 
     NeuralNetwork::new(layers, N_INPUTS)
 }
@@ -23,9 +23,10 @@ fn train_step(model: &NeuralNetwork, X: ArrayView2<f32>) -> Array2<f32> {
      * Perform a training step
      */
     let outputs = model.forward(X);
+    assert!(outputs.shape() == [BATCH_SIZE,10]);
+
     outputs
 }
-
 
 fn train(model: NeuralNetwork, dataset: (Array2<f32>, Vec<u8>)) {
     println!("Training..");
