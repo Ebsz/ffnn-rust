@@ -47,7 +47,6 @@ fn sigmoid(x: f32) -> f32 {
     1.0/(1.0+(-x).exp())
 }
 
-
 fn softmax(x: &Array2<f32>) -> Array2<f32> {
     // TODO: This could very well be very slow
 
@@ -57,5 +56,5 @@ fn softmax(x: &Array2<f32>) -> Array2<f32> {
         row /= row.sum();
     }
 
-    e
+    s
 }

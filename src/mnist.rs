@@ -12,13 +12,26 @@ const IMG_HEADER_LEN: usize = 16;
 const N_IMAGES_TRAIN: usize = 60000;
 
 
-pub fn load_mnist() -> (Array2<f32>, Vec<u8>) {
+pub fn load_mnist() -> (Array2<f32>, Array2<f32>) {
     println!("Loading mnist dataset");
 
     let mut training_data: (Vec<u8>, Vec<u8>) = load_training_set();
     let img: Array2<f32> = normalize_img(data_to_arrays(training_data.0));
+    let labels: Array2<f32> = one_hot_encode(training_data.1);
 
-    (img, training_data.1)
+    assert!(img.shape() == [N_IMAGES_TRAIN, IMG_SIZE]);
+
+    (img, labels)
+}
+
+fn one_hot_encode(labels: Vec<u8>) -> Array2<f32> {
+    let mut L: Array2<f32> = Array2::zeros((labels.len(), 10));
+
+    for (n, l) in labels.into_iter().enumerate() {
+        L.row_mut(n)[(l as usize)] = 1.0;
+    }
+
+    L
 }
 
 fn normalize_img(data: Array2<f32>) -> Array2<f32> {
@@ -38,6 +51,7 @@ fn load_training_set() -> (Vec<u8>, Vec<u8>) {
     let mut img = read_file("mnist/train-images-idx3-ubyte");
     let mut labels = read_file("mnist/train-labels-idx1-ubyte");
 
+    // Remove file headers
     img.drain(..IMG_HEADER_LEN);
     labels.drain(..LABEL_HEADER_LEN);
 
@@ -46,7 +60,6 @@ fn load_training_set() -> (Vec<u8>, Vec<u8>) {
 
     (img, labels)
 }
-
 
 fn read_file(path: &'static str) -> Vec::<u8> {
     // TODO: this is a wonky way of handling the Result(); improve
@@ -66,39 +79,3 @@ fn read_file(path: &'static str) -> Vec::<u8> {
 fn save_image(buf: &[u8] ) {
     image::save_buffer("img.png", buf, 28,28, image::ColorType::L8);
 }
-
-
-//TODO: obsolete
-//fn parse_images(mut data: Vec::<u8>) -> Vec<u8> {
-//    const OFFSET: usize = 16; // Header size.
-//    const IMG_SIZE: usize = 784; // Number of bytes per image.
-//    const N: usize = 60000; 
-//
-//    // Discard the header.
-//    data.drain(..OFFSET);
-//
-//    //let img: Vec<&[u8]> = data.chunks(IMG_SIZE).map(|k| k.into()).collect();
-//
-//    assert_eq!(data.len(), N*IMG_SIZE);
-//
-//    data
-//}
-//
-//
-//fn parse_labels(mut data: Vec::<u8>) -> Vec<u8> {
-//    const OFFSET: usize = 8; // Header size.
-//    const N: usize = 60000; 
-//
-//    // Discard the header.
-//    data.drain(..OFFSET);
-//
-//    for i in 0..10 {
-//        println!("{}", data[i]);
-//    }
-//
-//    println!("{}", data.len());
-//
-//
-//
-//    data
-//}
