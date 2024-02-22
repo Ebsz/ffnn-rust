@@ -1,12 +1,15 @@
 pub mod network;
 pub mod mnist;
+pub mod plots;
 
 use std::time::Instant;
 
+use ndarray::{Array2, ArrayView1, ArrayView2, array, s,  Axis};
+
 use network::NeuralNetwork;
 use mnist::load_mnist;
+use plots::plot_loss;
 
-use ndarray::{Array2, ArrayView1, ArrayView2, array, s,  Axis};
 
 const BATCH_SIZE: usize = 50;
 const N_INPUTS: usize = 784;
@@ -28,7 +31,6 @@ fn cross_entropy_loss(a: ArrayView2<f32>, y: ArrayView2<f32>) -> f32 {
     -(&y * &(a.mapv(f32::ln)).view()).sum() / (BATCH_SIZE as f32)
 }
 
-
 fn train_step(model: &mut NeuralNetwork, x_batch: ArrayView2<f32>, y_batch: ArrayView2<f32>) -> f32 {
     /*
      * Perform a training step, including forward, backward, and gradient descent.
@@ -49,7 +51,7 @@ fn train_step(model: &mut NeuralNetwork, x_batch: ArrayView2<f32>, y_batch: Arra
     cross_entropy_loss(outputs.view(), y_batch)
 }
 
-fn train(mut model: NeuralNetwork, dataset: (Array2<f32>, Array2<f32>)) {
+fn train(mut model: NeuralNetwork, dataset: (Array2<f32>, Array2<f32>)) -> Vec<f32> {
     println!("Training..");
 
     let img_array = dataset.0;
@@ -59,7 +61,7 @@ fn train(mut model: NeuralNetwork, dataset: (Array2<f32>, Array2<f32>)) {
 
     let mut its = 0;
 
-    let mut acc: Vec<f32> = Vec::new();
+    let mut loss_history: Vec<f32> = Vec::new();
 
     let mut now = Instant::now();
     for i in 0..its_per_epoch {
@@ -67,7 +69,7 @@ fn train(mut model: NeuralNetwork, dataset: (Array2<f32>, Array2<f32>)) {
         let y_batch = labels.slice(s![i..i+BATCH_SIZE,..]);
 
         let loss: f32 = train_step(&mut model, x_batch, y_batch);
-
+        loss_history.push(loss);
 
         its+= 1;
         if its % REPORT_FREQ == 0 {
@@ -78,6 +80,8 @@ fn train(mut model: NeuralNetwork, dataset: (Array2<f32>, Array2<f32>)) {
             now = Instant::now();
         }
     }
+
+    loss_history
 }
 
 fn create_network() -> NeuralNetwork {
@@ -88,11 +92,15 @@ fn create_network() -> NeuralNetwork {
     NeuralNetwork::new(layers, N_INPUTS)
 }
 
+
+
 fn main() {
     // The dataset consists of a [60000, 784] array containing the image data,
     // and a [60000, 10] array containing one-hot encoded labels
     let dataset: (Array2<f32>, Array2<f32>) = load_mnist();
     let mut network: NeuralNetwork = create_network();
 
-    train(network, dataset);
+    let loss_history = train(network, dataset);
+
+    plot_loss(loss_history);
 }
