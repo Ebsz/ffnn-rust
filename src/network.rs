@@ -1,4 +1,4 @@
-use ndarray::{Array, Array2, array, s, ArrayView2, Axis};
+use ndarray::{Array, Array2, ArrayView2};
 use ndarray_rand::RandomExt;
 use ndarray_rand::rand_distr::StandardNormal;
 use ndarray_rand::rand::rngs::StdRng;
@@ -17,7 +17,7 @@ impl NeuralNetwork {
         let mut activations: Vec<Array2<f32>> = vec![];
 
         // Initialize empty activation matrices
-        for i in 0..3 {
+        for _ in 0..3 {
             activations.push(Array2::zeros((0,0)));
         }
 
@@ -27,7 +27,6 @@ impl NeuralNetwork {
         let mut prev: usize = n_inputs;
         for l in layers {
             let shape = (prev, l);
-            println!("{:?}", shape);
             weights.push(Array::random_using(shape, StandardNormal, &mut rng));
 
             prev = l;
@@ -53,7 +52,7 @@ impl NeuralNetwork {
         l2 = l2.mapv(|x| sigmoid(x));
         *&mut self.A[1] = l2.clone();
 
-        let mut l3 = l2.dot(&self.W[2]); // [bs, 10]
+        let l3 = l2.dot(&self.W[2]); // [bs, 10]
         let out = softmax(&l3);
 
         out
@@ -94,8 +93,6 @@ fn sigmoid(x: f32) -> f32 {
 }
 
 fn softmax(x: &Array2<f32>) -> Array2<f32> {
-    // TODO: This could very well be very slow
-
     let mut s = x.mapv(f32::exp);
 
     for mut row in s.rows_mut() {

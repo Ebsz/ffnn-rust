@@ -1,9 +1,8 @@
 use plotters::prelude::*;
 
 pub fn plot_loss(loss_history: Vec<f32>) -> Result<(), Box<dyn std::error::Error>> {
-    // Plot parameters
     let length: f32 = loss_history.len() as f32;
-    let height: f32 = 1.0;
+    let height: f32 = 3.0;
     let filename = "loss.png";
 
     let root = BitMapBackend::new(filename, (640, 480)).into_drawing_area();

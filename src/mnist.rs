@@ -3,7 +3,7 @@ use std::io::Read;
 
 use image::{ImageBuffer};
 
-use ndarray::{Array, Array2, array, s, ArrayView};
+use ndarray::{Array, Array2};
 
 pub const IMG_SIZE: usize = 784;
 
@@ -15,7 +15,7 @@ const N_IMAGES_TRAIN: usize = 60000;
 pub fn load_mnist() -> (Array2<f32>, Array2<f32>) {
     println!("Loading mnist dataset");
 
-    let mut training_data: (Vec<u8>, Vec<u8>) = load_training_set();
+    let training_data: (Vec<u8>, Vec<u8>) = load_training_set();
     let img: Array2<f32> = normalize_img(data_to_arrays(training_data.0));
     let labels: Array2<f32> = one_hot_encode(training_data.1);
 
@@ -25,13 +25,13 @@ pub fn load_mnist() -> (Array2<f32>, Array2<f32>) {
 }
 
 fn one_hot_encode(labels: Vec<u8>) -> Array2<f32> {
-    let mut L: Array2<f32> = Array2::zeros((labels.len(), 10));
+    let mut onehot: Array2<f32> = Array2::zeros((labels.len(), 10));
 
     for (n, l) in labels.into_iter().enumerate() {
-        L.row_mut(n)[(l as usize)] = 1.0;
+        onehot.row_mut(n)[l as usize] = 1.0;
     }
 
-    L
+    onehot
 }
 
 fn normalize_img(data: Array2<f32>) -> Array2<f32> {
@@ -62,20 +62,24 @@ fn load_training_set() -> (Vec<u8>, Vec<u8>) {
 }
 
 fn read_file(path: &'static str) -> Vec::<u8> {
-    // TODO: this is a wonky way of handling the Result(); improve
-    if let Ok(mut file) = File::open(path) {
-        let mut buffer: Vec<u8> = Vec::new();
+    let file = File::open(path);
 
-        file.read_to_end(&mut buffer);
+    match file {
+        Ok(mut f) => {
+            let mut buffer: Vec<u8> = Vec::new();
+            let _ = f.read_to_end(&mut buffer);
 
-        buffer
+            buffer
 
-    } else {
-        Vec::new()
+        },
+        Err(e) => {
+            println!("Error reading file {}: {}", path, e);
+
+            Vec::new()
+        }
     }
 }
 
-
 fn save_image(buf: &[u8] ) {
-    image::save_buffer("img.png", buf, 28,28, image::ColorType::L8);
+    let _ = image::save_buffer("img.png", buf, 28,28, image::ColorType::L8);
 }
