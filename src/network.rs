@@ -1,6 +1,6 @@
 use ndarray::{Array, Array2, array, s, ArrayView2, Axis};
 use ndarray_rand::RandomExt;
-use ndarray_rand::rand_distr::Uniform;
+use ndarray_rand::rand_distr::StandardNormal;
 
 pub struct NeuralNetwork {
     pub W: Vec<Array2<f32>>, // Weights of the network
@@ -23,7 +23,7 @@ impl NeuralNetwork {
         for l in layers {
             let shape = (prev, l);
             println!("{:?}", shape);
-            weights.push(Array::random(shape, Uniform::new(-1.,1.))); // TODO: currently initializing uniformly; change to gaussian?
+            weights.push(Array::random(shape, StandardNormal));
 
             prev = l;
         }
