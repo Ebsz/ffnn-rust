@@ -1,6 +1,9 @@
 use ndarray::{Array, Array2, array, s, ArrayView2, Axis};
 use ndarray_rand::RandomExt;
 use ndarray_rand::rand_distr::StandardNormal;
+use ndarray_rand::rand::rngs::StdRng;
+use ndarray_rand::rand::SeedableRng;
+
 
 pub struct NeuralNetwork {
     pub W: Vec<Array2<f32>>, // Weights of the network
@@ -18,12 +21,14 @@ impl NeuralNetwork {
             activations.push(Array2::zeros((0,0)));
         }
 
+        let mut rng = StdRng::seed_from_u64(0); // Fixed seed
+
         // Initialize weights
         let mut prev: usize = n_inputs;
         for l in layers {
             let shape = (prev, l);
             println!("{:?}", shape);
-            weights.push(Array::random(shape, StandardNormal));
+            weights.push(Array::random_using(shape, StandardNormal, &mut rng));
 
             prev = l;
         }

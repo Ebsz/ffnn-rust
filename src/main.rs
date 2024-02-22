@@ -92,8 +92,6 @@ fn create_network() -> NeuralNetwork {
     NeuralNetwork::new(layers, N_INPUTS)
 }
 
-
-
 fn main() {
     // The dataset consists of a [60000, 784] array containing the image data,
     // and a [60000, 10] array containing one-hot encoded labels

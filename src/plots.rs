@@ -34,5 +34,6 @@ pub fn plot_loss(loss_history: Vec<f32>) -> Result<(), Box<dyn std::error::Error
     root.present()?;
 
     println!("Plot saved to {}", filename);
+
     Ok(())
 }
