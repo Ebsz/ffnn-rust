@@ -1,5 +1,6 @@
 use plotters::prelude::*;
 
+
 pub fn plot_loss(train_loss: Vec<f32>, val_loss: Vec<(f32, f32)>) -> Result<(), Box<dyn std::error::Error>> {
     let length: f32 = train_loss.len() as f32;
     let height: f32 = 3.0;

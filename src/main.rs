@@ -11,14 +11,14 @@ use mnist::load_mnist;
 use plots::plot_loss;
 
 
-const BATCH_SIZE: usize = 50;
 const N_INPUTS: usize = 784;
+
+const BATCH_SIZE: usize = 50;
 const LEARNING_RATE: f32 = 0.01;
+const EPOCHS: usize = 20;
 
-const VALIDATE_FREQ: usize = 240;   // Validate the model every # batches
-const EPOCHS: usize = 20;            // Number of epochs to train for
-
-const VALIDATION_SIZE: usize = 10000; // Number of examples from the dataset used in validation
+const VALIDATION_SIZE: usize = 5000; // Number of examples from the dataset used for validation
+const VALIDATE_FREQ: usize = 240;    // Validate the model every # number of batches
 
 
 fn accuracy(y: ArrayView2<f32>, y_hat: ArrayView2<f32>) -> f32 {
@@ -122,7 +122,9 @@ fn train(mut model: NeuralNetwork, dataset: (Array2<f32>, Array2<f32>), epochs: 
     let mut train_loss_record: Vec<f32> = Vec::new();
     let mut val_loss_record: Vec<(f32, f32)> = Vec::new();
 
-    let mut steps = 0; // Total number of training steps completed
+    // Total number of training steps completed
+    let mut steps = 0;
+
     let mut now = Instant::now();
 
     for e in 0..epochs {

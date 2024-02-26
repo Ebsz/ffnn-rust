@@ -17,11 +17,12 @@ impl NeuralNetwork {
         let mut bias: Vec<Array1<f32>> = vec![];
 
         // Initialize empty activation matrices
-        for _ in 0..3 {
+        for _ in 0..layers.len() {
             activations.push(Array2::zeros((0, 0)));
         }
 
-        let mut rng = StdRng::seed_from_u64(0); // Fixed seed
+        // Fix the RNG seed
+        let mut rng = StdRng::seed_from_u64(0);
 
         // Initialize weights
         let mut prev: usize = n_inputs;
@@ -47,18 +48,22 @@ impl NeuralNetwork {
          * X: Array2: [bs, 784]
          */
 
+        // Input layer
         let mut l1 = X.dot(&self.W[0]) + &self.B[0]; // [bs, 64]
         l1 = l1.mapv(|x| sigmoid(x));
         *&mut self.A[0] = l1.clone();
 
-        let mut l2 = l1.dot(&self.W[1]) + &self.B[1]; // [bs, 32]
-        l2 = l2.mapv(|x| sigmoid(x));
-        *&mut self.A[1] = l2.clone();
+        // Hidden layers
+        for i in 1..(self.W.len()-1) {
+            *&mut self.A[i] = (&self.A[i-1].dot(&self.W[i]) + &self.B[i])
+                .mapv(|x| sigmoid(x));
+        }
 
-        let l3 = l2.dot(&self.W[2]) + &self.B[2]; // [bs, 10]
-        let out = softmax(&l3);
+        // Output layer
+        let out_idx: usize = self.A.len() - 1;
+        let out = &self.A[out_idx-1].dot(&self.W[out_idx]) + &self.B[out_idx]; // [bs, 10]
 
-        out
+        softmax(&out)
     }
 
     pub fn backward( &self, X: ArrayView2<f32>, Y: ArrayView2<f32>, outputs: ArrayView2<f32>) -> (Vec<Array2<f32>>, Vec<Array1<f32>>) {
@@ -72,29 +77,37 @@ impl NeuralNetwork {
          */
 
         let bs: f32 = X.shape()[0] as f32;
+        let n_layers: usize = self.W.len();
 
         // Error in the output layer
-        let output_error = &outputs - &Y; // [bs, 10]
+        let output_error = &outputs - &Y;
 
-        // Errors in hidden layers
-        let l2_error = &output_error.dot(&self.W[2].t()) * (&self.A[1] * (1.0 - &self.A[1]));
-        let l1_error = &l2_error.dot(&self.W[1].t()) * (&self.A[0] * (1.0 - &self.A[0]));
+        let mut errors: Vec<Array2<f32>> = vec![];
+        errors.push(output_error);
 
+        for i in 0..(n_layers-1) {
+            let err = &errors[i].dot(&self.W[n_layers-(i+1)].t())
+                * (&self.A[n_layers-(i+2)] * (1.0 - &self.A[n_layers - (i+2)]));
+
+            errors.push(err);
+        }
+
+        // Make the first element the first layer error
+        errors.reverse();
 
         // Weight gradients
         let mut grads: Vec<Array2<f32>> = vec![];
+        grads.push((X.t().dot(&errors[0])) / bs);
 
-        grads.push((X.t().dot(&l1_error)) / bs);
-        grads.push((self.A[0].t().dot(&l2_error)) / bs);
-        grads.push((self.A[1].t().dot(&output_error)) / bs);
+        for i in 0..(n_layers-1) {
+            grads.push((self.A[i].t().dot(&errors[i+1])) / bs);
+        }
 
         // Bias gradients
         let mut b_grads: Vec<Array1<f32>> = vec![];
-
-        b_grads.push(l1_error.sum_axis(Axis(0)) / bs);
-        b_grads.push(l2_error.sum_axis(Axis(0)) / bs);
-        b_grads.push(output_error.sum_axis(Axis(0)) / bs);
-
+        for i in 0..n_layers {
+            b_grads.push(errors[i].sum_axis(Axis(0)) / bs);
+        }
 
         (grads, b_grads)
     }
