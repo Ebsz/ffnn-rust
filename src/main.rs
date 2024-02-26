@@ -1,15 +1,14 @@
-pub mod network;
 pub mod mnist;
+pub mod network;
 pub mod plots;
 
 use std::time::Instant;
 
-use ndarray::{Array2, ArrayView2, ArrayView1, Axis, s};
+use ndarray::{s, Array2, ArrayView1, ArrayView2, Axis};
 
-use network::NeuralNetwork;
 use mnist::load_mnist;
+use network::NeuralNetwork;
 use plots::plot_loss;
-
 
 const N_INPUTS: usize = 784;
 
@@ -19,7 +18,6 @@ const EPOCHS: usize = 20;
 
 const VALIDATION_SIZE: usize = 5000; // Number of examples from the dataset used for validation
 const VALIDATE_FREQ: usize = 240;    // Validate the model every # number of batches
-
 
 fn accuracy(y: ArrayView2<f32>, y_hat: ArrayView2<f32>) -> f32 {
     /*
@@ -31,7 +29,7 @@ fn accuracy(y: ArrayView2<f32>, y_hat: ArrayView2<f32>) -> f32 {
 
     fn argmax(a: ArrayView1<f32>) -> usize {
         /* Returns the index of the max value in the array */
-        let max = a.iter().reduce(|x, max| if x > max {x} else {max}).unwrap();
+        let max = a.iter().reduce(|x, max| if x > max { x } else { max }).unwrap();
         let pos = a.iter().position(|x| x == max).unwrap();
         pos
     }
@@ -39,14 +37,27 @@ fn accuracy(y: ArrayView2<f32>, y_hat: ArrayView2<f32>) -> f32 {
     let predictions = y_hat.map_axis(Axis(1), |x| argmax(x));
     let label = y.map_axis(Axis(1), |x| argmax(x));
 
-    let correct = predictions.iter().zip(label.iter()).filter(|(a, b)| a == b).count();
+    let correct = predictions
+        .iter()
+        .zip(label.iter())
+        .filter(|(a, b)| a == b)
+        .count();
 
     correct as f32 / y.shape()[0] as f32
 }
 
-fn validate(model: &mut NeuralNetwork, x_batch: ArrayView2<f32>, y_batch: ArrayView2<f32>, x_val: ArrayView2<f32>, y_val: ArrayView2<f32>) -> (f32, f32, f32) {
+fn validate(
+    model: &mut NeuralNetwork,
+    x_batch: ArrayView2<f32>,
+    y_batch: ArrayView2<f32>,
+    x_val: ArrayView2<f32>,
+    y_val: ArrayView2<f32>,
+) -> (f32, f32, f32) {
     /*
      * Validate the model by testing on data outside the training set
+     *
+     * Returns loss and accuracy on the validation set, as well as
+     * accuracy for the batch
      */
 
     let train_accuracy = accuracy(y_batch, model.forward(x_batch).view());
@@ -74,7 +85,11 @@ fn cross_entropy_loss(a: ArrayView2<f32>, y: ArrayView2<f32>) -> f32 {
     -(&y * &(a.mapv(f32::ln)).view()).sum() / bs
 }
 
-fn train_step(model: &mut NeuralNetwork, x_batch: ArrayView2<f32>, y_batch: ArrayView2<f32>) -> f32 {
+fn train_step(
+    model: &mut NeuralNetwork,
+    x_batch: ArrayView2<f32>,
+    y_batch: ArrayView2<f32>,
+) -> f32 {
     /*
      * Perform a training step, including forward, backward, and gradient descent.
      *
@@ -82,7 +97,7 @@ fn train_step(model: &mut NeuralNetwork, x_batch: ArrayView2<f32>, y_batch: Arra
      * Y: [bs, 10] array of labels corresponding to each image
      */
     let outputs = model.forward(x_batch);
-    assert!(outputs.shape() == [BATCH_SIZE,10]);
+    assert!(outputs.shape() == [BATCH_SIZE, 10]);
 
     let (grads, b_grads) = model.backward(x_batch, y_batch, outputs.view());
 
@@ -95,8 +110,15 @@ fn train_step(model: &mut NeuralNetwork, x_batch: ArrayView2<f32>, y_batch: Arra
     cross_entropy_loss(outputs.view(), y_batch)
 }
 
-fn split_dataset(dataset: &(Array2<f32>, Array2<f32>), val_size: usize) ->
-        (ArrayView2<f32>, ArrayView2<f32>, ArrayView2<f32>, ArrayView2<f32>) {
+fn split_dataset(
+    dataset: &(Array2<f32>, Array2<f32>),
+    val_size: usize,
+) -> (
+    ArrayView2<f32>,
+    ArrayView2<f32>,
+    ArrayView2<f32>,
+    ArrayView2<f32>,
+) {
     /*
      *  Separate the entire dataset into validation and train sets
      */
@@ -112,8 +134,12 @@ fn split_dataset(dataset: &(Array2<f32>, Array2<f32>), val_size: usize) ->
     (x_train, y_train, x_validate, y_validate)
 }
 
-fn train(mut model: NeuralNetwork, dataset: (Array2<f32>, Array2<f32>), epochs: usize) -> (Vec<f32>, Vec<(f32, f32)>) {
-    println!("Training.. ({} epochs)", epochs);
+fn train(
+    mut model: NeuralNetwork,
+    dataset: (Array2<f32>, Array2<f32>),
+    epochs: usize,
+) -> (Vec<f32>, Vec<(f32, f32)>) {
+    println!("Training.. ({} epochs)\n", epochs);
 
     let (x_train, y_train, x_val, y_val) = split_dataset(&dataset, VALIDATION_SIZE);
 
@@ -131,16 +157,17 @@ fn train(mut model: NeuralNetwork, dataset: (Array2<f32>, Array2<f32>), epochs: 
         println!("********** Epoch {} **********", e);
 
         for i in 0..steps_per_epoch {
-            let x_batch = x_train.slice(s![i..i+BATCH_SIZE,..]);
-            let y_batch = y_train.slice(s![i..i+BATCH_SIZE,..]);
+            let x_batch = x_train.slice(s![i..i + BATCH_SIZE, ..]);
+            let y_batch = y_train.slice(s![i..i + BATCH_SIZE, ..]);
 
             let loss: f32 = train_step(&mut model, x_batch, y_batch);
             train_loss_record.push(loss);
 
-            steps+= 1;
+            steps += 1;
 
             if steps % VALIDATE_FREQ == 0 {
-                let (val_loss, val_accuracy, train_accuracy) = validate(&mut model, x_batch, y_batch, x_val, y_val);
+                let (val_loss, val_accuracy, train_accuracy) =
+                    validate(&mut model, x_batch, y_batch, x_val, y_val);
 
                 val_loss_record.push((steps as f32, val_loss));
 
@@ -161,21 +188,23 @@ fn train(mut model: NeuralNetwork, dataset: (Array2<f32>, Array2<f32>), epochs: 
 fn create_network() -> NeuralNetwork {
     println!("Initializing network");
 
-    let layers: Vec<usize> = vec!(64, 32, 10);
+    let layers: Vec<usize> = vec![64, 32, 10];
 
     NeuralNetwork::new(layers, N_INPUTS)
 }
 
 fn main() {
-    // The dataset consists of a [60000, 784] array containing the image data,
-    // and a [60000, 10] array containing one-hot encoded labels
-    let dataset: (Array2<f32>, Array2<f32>) = load_mnist();
+    let dataset_result = load_mnist();
+    let dataset = match dataset_result {
+        Ok(d) => d,
+        Err(e) => panic!("{e}"),
+    };
+
     let network: NeuralNetwork = create_network();
 
     let (train_loss, validation_loss) = train(network, dataset, EPOCHS);
 
     let plot_ok = plot_loss(train_loss, validation_loss);
-
     match plot_ok {
         Ok(_) => (),
         Err(e) => println!("Error creating plot: {:?}", e),
