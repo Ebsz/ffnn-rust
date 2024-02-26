@@ -84,11 +84,12 @@ fn train_step(model: &mut NeuralNetwork, x_batch: ArrayView2<f32>, y_batch: Arra
     let outputs = model.forward(x_batch);
     assert!(outputs.shape() == [BATCH_SIZE,10]);
 
-    let grads = model.backward(x_batch, y_batch, outputs.view());
+    let (grads, b_grads) = model.backward(x_batch, y_batch, outputs.view());
 
-    // Gradient descent, using the gradients to update the weights
+    // Gradient descent, using the gradients to update the weights and biases of the network
     for i in 0..grads.len() {
         model.W[i] = &model.W[i] - LEARNING_RATE * &grads[i];
+        model.B[i] = &model.B[i] - LEARNING_RATE * &b_grads[i];
     }
 
     cross_entropy_loss(outputs.view(), y_batch)
