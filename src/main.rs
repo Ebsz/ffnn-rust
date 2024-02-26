@@ -16,7 +16,9 @@ const N_INPUTS: usize = 784;
 const LEARNING_RATE: f32 = 0.01;
 
 const VALIDATE_FREQ: usize = 240;   // Validate the model every # batches
-const EPOCHS: usize = 1;            // Number of epochs to train for
+const EPOCHS: usize = 20;            // Number of epochs to train for
+
+const VALIDATION_SIZE: usize = 10000; // Number of examples from the dataset used in validation
 
 
 fn accuracy(y: ArrayView2<f32>, y_hat: ArrayView2<f32>) -> f32 {
@@ -42,17 +44,19 @@ fn accuracy(y: ArrayView2<f32>, y_hat: ArrayView2<f32>) -> f32 {
     correct as f32 / y.shape()[0] as f32
 }
 
-fn validate(model: &mut NeuralNetwork, x_batch: ArrayView2<f32>, y_batch: ArrayView2<f32>) -> f32 {
+fn validate(model: &mut NeuralNetwork, x_batch: ArrayView2<f32>, y_batch: ArrayView2<f32>, x_val: ArrayView2<f32>, y_val: ArrayView2<f32>) -> (f32, f32, f32) {
     /*
      * Validate the model by testing on data outside the training set
-     *
-     * TODO: Currently does not actually validate, but only calculates
-     *       accuracy on the training set; implement
      */
-    let outputs = model.forward(x_batch);
-    let accuracy = accuracy(y_batch, outputs.view());
 
-    accuracy
+    let train_accuracy = accuracy(y_batch, model.forward(x_batch).view());
+
+    let val_outputs = model.forward(x_val);
+
+    let val_accuracy = accuracy(y_val, val_outputs.view());
+    let val_loss = cross_entropy_loss(val_outputs.view(), y_val);
+
+    (val_loss, val_accuracy, train_accuracy)
 }
 
 fn cross_entropy_loss(a: ArrayView2<f32>, y: ArrayView2<f32>) -> f32 {
@@ -65,7 +69,9 @@ fn cross_entropy_loss(a: ArrayView2<f32>, y: ArrayView2<f32>) -> f32 {
      * y: [bs, 10] ground truth
      */
 
-    -(&y * &(a.mapv(f32::ln)).view()).sum() / (BATCH_SIZE as f32)
+    let bs: f32 = a.shape()[0] as f32;
+
+    -(&y * &(a.mapv(f32::ln)).view()).sum() / bs
 }
 
 fn train_step(model: &mut NeuralNetwork, x_batch: ArrayView2<f32>, y_batch: ArrayView2<f32>) -> f32 {
@@ -88,46 +94,65 @@ fn train_step(model: &mut NeuralNetwork, x_batch: ArrayView2<f32>, y_batch: Arra
     cross_entropy_loss(outputs.view(), y_batch)
 }
 
-fn train(mut model: NeuralNetwork, dataset: (Array2<f32>, Array2<f32>), epochs: usize) -> (Vec<f32>, Vec<f32>) {
-    println!("Training..");
+fn split_dataset(dataset: &(Array2<f32>, Array2<f32>), val_size: usize) ->
+        (ArrayView2<f32>, ArrayView2<f32>, ArrayView2<f32>, ArrayView2<f32>) {
+    /*
+     *  Separate the entire dataset into validation and train sets
+     */
 
-    let x_dataset = dataset.0;
-    let y_dataset = dataset.1;
+    let cutoff = dataset.0.shape()[0] - val_size;
 
-    let its_per_epoch: usize = y_dataset.shape()[0] / BATCH_SIZE;
+    let x_train = dataset.0.slice(s![..cutoff, ..]);
+    let y_train = dataset.1.slice(s![..cutoff, ..]);
 
-    let mut loss_history: Vec<f32> = Vec::new();
-    let mut accuracy_history: Vec<f32> = Vec::new();
+    let x_validate = dataset.0.slice(s![cutoff.., ..]);
+    let y_validate = dataset.1.slice(s![cutoff.., ..]);
 
-    let mut its = 0;
+    (x_train, y_train, x_validate, y_validate)
+}
+
+fn train(mut model: NeuralNetwork, dataset: (Array2<f32>, Array2<f32>), epochs: usize) -> (Vec<f32>, Vec<(f32, f32)>) {
+    println!("Training.. ({} epochs)", epochs);
+
+    let (x_train, y_train, x_val, y_val) = split_dataset(&dataset, VALIDATION_SIZE);
+
+    let steps_per_epoch: usize = y_train.shape()[0] / BATCH_SIZE;
+
+    let mut train_loss_record: Vec<f32> = Vec::new();
+    let mut val_loss_record: Vec<(f32, f32)> = Vec::new();
+
+    let mut steps = 0; // Total number of training steps completed
     let mut now = Instant::now();
 
     for e in 0..epochs {
-        for i in 0..its_per_epoch {
-            let x_batch = x_dataset.slice(s![i..i+BATCH_SIZE,..]);
-            let y_batch = y_dataset.slice(s![i..i+BATCH_SIZE,..]);
+        println!("********** Epoch {} **********", e);
+
+        for i in 0..steps_per_epoch {
+            let x_batch = x_train.slice(s![i..i+BATCH_SIZE,..]);
+            let y_batch = y_train.slice(s![i..i+BATCH_SIZE,..]);
 
             let loss: f32 = train_step(&mut model, x_batch, y_batch);
-            loss_history.push(loss);
+            train_loss_record.push(loss);
 
-            its+= 1;
+            steps+= 1;
 
-            if its % VALIDATE_FREQ == 0 {
-                let accuracy: f32 = validate(&mut model, x_batch, y_batch);
+            if steps % VALIDATE_FREQ == 0 {
+                let (val_loss, val_accuracy, train_accuracy) = validate(&mut model, x_batch, y_batch, x_val, y_val);
 
-                accuracy_history.push(accuracy);
+                val_loss_record.push((steps as f32, val_loss));
 
-                println!("Loss: {:.3}\t Accuracy: {}", loss_history[loss_history.len()-1], accuracy);
+                println!("Train - loss: {:.3}, accuracy: {:.2}\t | Validation - loss: {:.3}, accuracy: {:.2}",
+                    train_loss_record[train_loss_record.len()-1], train_accuracy, val_loss, val_accuracy);
             }
         }
 
         let elapsed = now.elapsed().as_secs_f32();
-        println!("***** Epoch {} \t ({:.2} steps/s) *****", e, (its_per_epoch as f32) / elapsed);
+        println!("({:.2} steps/s)\n", (steps_per_epoch as f32) / elapsed);
 
         now = Instant::now();
     }
 
-    (loss_history, accuracy_history)
+    (train_loss_record, val_loss_record)
 }
 
 fn create_network() -> NeuralNetwork {
@@ -144,9 +169,9 @@ fn main() {
     let dataset: (Array2<f32>, Array2<f32>) = load_mnist();
     let network: NeuralNetwork = create_network();
 
-    let (loss_history, accuracy_history) = train(network, dataset, EPOCHS);
+    let (train_loss, validation_loss) = train(network, dataset, EPOCHS);
 
-    let plot_ok = plot_loss(loss_history);
+    let plot_ok = plot_loss(train_loss, validation_loss);
 
     match plot_ok {
         Ok(_) => (),
